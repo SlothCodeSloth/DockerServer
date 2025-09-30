@@ -1,0 +1,207 @@
+version: "3"
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=10.2.0.2/32
+      - SERVER_COUNTRIES=United States
+      - PORT_FORWARDING=on
+      - WIREGUARD_MTU=1320
+    ports:
+      - "${LOCAL_IP}:${QBIT_PORT}:${QBIT_PORT}" # Web UI - LAN only
+      - "${LOCAL_IP}:6881:6881/tcp" # BitTorrent TCP - LAN only
+      - "${LOCAL_IP}:6881:6881/udp" # BitTorrent UDP - LAN only
+    restart: always
+    volumes:
+      - ./gluetun-config:/gluetun
+
+  qbittorrent: 
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    environment: 
+      - PUID=1000 
+      - PGID=1000
+      - TZ=America/New_York
+      - WEBUI_PORT="${QBIT_PORT}:${QBIT_PORT}"
+      - WEBUI_USERNAME=${QBIT_USERNAME}
+      - WEBUI_PASSWORD=${QBIT_PASSWORD}
+    volumes: 
+      - ./appdata/qbittorrent:/config
+      - ./data/torrents/:/data/torrents
+    depends_on:
+      gluetun:
+        condition: service_healthy
+
+  homarr: 
+    image: ghcr.io/ajnart/homarr:latest
+    container_name: homarr
+    ports:
+      - "${HOMARR_PORT}:${HOMARR_PORT}"
+    volumes: 
+      - ./appdata/homarr:/app/data/configs
+    restart: unless-stopped
+
+  overseerr: 
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment: 
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes: 
+      - ./appdata/overseerr:/config
+    ports:
+      - "${OVERSEERR_PORT}:${OVERSEERR_PORT}"
+    restart: unless-stopped
+
+  sonarr: 
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    environment: 
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes: 
+      - ./appdata/sonarr:/config
+      - ./data:/data
+    ports: 
+      - "${SONARR_PORT}:${SONARR_PORT}"
+    restart: unless-stopped
+
+  radarr: 
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes: 
+      - ./appdata/radarr:/config
+      - ./data:/data
+    ports:
+      - "${RADARR_PORT}:${RADARR_PORT}"
+    restart: unless-stopped
+
+  prowlarr: 
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment: 
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes: 
+      - ./appdata/prowlarr:/config
+    ports: 
+      - "${PROWLARR_PORT}:${PROWLARR_PORT}"
+    restart: unless-stopped
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - "${PORTAINER_PORT}:${PORTAINER_PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./appdata/portainer:/data
+    restart: unless-stopped
+    
+  pcpartpicker-api: 
+    build: ./PCPartPicker
+    container_name: pcpartpicker-api
+    expose:
+      - ${API_PORT}
+    restart: unless-stopped
+    
+  mc:
+    container_name: mc-server
+    image: itzg/minecraft-server
+    tty: true
+    stdin_open: true
+    ports:
+      - "${MC_PORT}:${MC_PORT}"
+    environment:
+      MEMORY: 6G
+      EULA: "TRUE"
+      TYPE: "FABRIC"
+      MODRINTH_MODPACK: /data/server.mrpack
+      MODRINTH_LOADER: fabric
+      VERSION: 1.21.1
+      MODRINTH_FORCE_SYNCHRONIZE: "true"
+    volumes:
+      - ./appdata/minecraft:/data
+      
+  nginx: 
+    image: nginx:latest
+    container_name: ikaserver_nginx
+    ports:
+      - "${NGINX_PORT_A}:${NGINX_PORT_A}"
+      - "${NGINX_PORT_B}:${NGINX_PORT_B}"
+    volumes: 
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./appdata/certbot/conf:/etc/letsencrypt:ro
+      - ./appdata/certbot/www:/var/www/certbot:ro
+      - ./appdata/blog_frontend/dist:/var/www/blog:ro
+    depends_on:
+      - pcpartpicker-api
+      - blog-backend
+    restart: unless-stopped
+      
+  certbot:
+    image: certbot/certbot
+    container_name: ikaserver_certbot
+    volumes:
+      - ./appdata/certbot/conf:/etc/letsencrypt
+      - ./appdata/certbot/www:/var/www/certbot
+    depends_on:
+      - nginx
+
+  blog-db:
+    image: postgres:15
+    container_name: blog-db
+    environment:
+      - POSTGRES_DB=blogdb
+      - POSTGRES_USER=${SPRING_DATASOURCE_USERNAME}
+      - POSTGRES_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+    volumes:
+      - ./appdata/postgres_blog:/var/lib/postgresql/data
+    restart: unless-stopped
+    
+  blog-backend:
+    image: openjdk:17-jdk
+    container_name: blog-backend
+    working_dir: /app
+    volumes:
+      - ./appdata/blog_backend:/app
+    command: ["java", "-jar", "blog-app.jar"]
+    environment:
+      # Database
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      
+      # Server
+      - SERVER_PORT=${SERVER_PORT}
+      
+      # Security
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USER=${ADMIN_USER}
+      - ADMIN_PASS=${ADMIN_PASS}
+    depends_on:
+      - blog-db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${SERVER_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
