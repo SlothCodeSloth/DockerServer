@@ -34,7 +34,7 @@ This home server provides an all-in-one solution for:
 | **PostgreSQL** | Blog database | Postgres 15 |
 | **Blog Backend** | REST API server | Spring Boot (Java 17) |
 | **Blog Frontend** | React website (Served via Nginx) | React + TypeScript + Vite |
-| **PCPartPicker API** | Custom Backend for API | [PyPartPicker API](TEMP) |
+| **PCPartPicker API** | Custom Backend for API | [PyPartPicker API](https://github.com/thefakequake/pypartpicker) |
 | **Minecraft Server** | Game server | itzg/minecraft-server (Fabric) |
 
 ---
@@ -54,7 +54,7 @@ This home server provides an all-in-one solution for:
 - **Secure Authentication**: JWT-based admin authentication for content management
 - **SSL/TLS Encryption**: Automated certificate renewal via Let's Encrypt
 - **Reverse Proxy**: Nginx handles routing and serves static frontend
-- **Android App API**: [PyPartPicker API](TEMP) hosted for App usage
+- **Android App API**: [PyPartPicker API](https://github.com/SlothCodeSloth/PCPP_API) hosted for App usage
 
 ### 🎮 Game Hosting
 - **Minecraft Server**: Fabric Modrinth modpack support
@@ -336,19 +336,19 @@ docker compose ps
 1. Access via `http://LOCAL_IP:QBIT_PORT`
 2. Login with credentials from `.env`
 3. Settings → Downloads → Default Save Path: `/data/torrents`
-4. Verify VPN connection in bottom right (should show ProtonVPN IP)
+4. Verify VPN connection in bottom right (should show VPN IP)
 
 ### VPN Configuration
 
-The Gluetun container routes all qBittorrent traffic through ProtonVPN:
+The Gluetun container routes all qBittorrent traffic through VPN:
 - **Provider**: Preferred VPN
 - **Protocol**: WireGuard
 - **Features**: Port forwarding can be enabled for better peer connectivity
 - **Network Mode**: qBittorrent shares Gluetun's network stack
 
-**To obtain WireGuard key from ProtonVPN:**
-1. Log in to ProtonVPN account
-2. Navigate to Downloads → WireGuard configuration
+**To obtain WireGuard key from VPN:**
+1. Access VPN account
+2. Navigate to WireGuard configuration
 3. Copy private key to `.env` file
 
 ---
@@ -483,7 +483,8 @@ cp docker-compose.yml nginx.conf .env "$BACKUP_DIR/"
 
 - **Blog Frontend**: [Personal Website Frontend](https://github.com/SlothCodeSloth/BlogFrontend)
 - **Blog Backend**: [Personal Website Backend](https://github.com/SlothCodeSloth/BlogBackend)
-- **PCPartPicker API**: [PCPP API](https://github.com/SlothCodeSloth/PCPP_API)
+- **PyPartPicker**: [PyPartPicker API]([https://github.com/SlothCodeSloth/PCPP_API](https://github.com/thefakequake/pypartpicker))
+- **PCPartPicker API Backend**: [PCPP API](https://github.com/SlothCodeSloth/PCPP_API)
 
 ---
 
